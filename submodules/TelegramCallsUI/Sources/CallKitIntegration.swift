@@ -20,7 +20,7 @@ public final class CallKitIntegration {
         return false
         #else
         if #available(iOSApplicationExtension 10.0, iOS 10.0, *) {
-            return Locale.current.regionCode?.lowercased() != "cn"
+            return Locale.current.regionCode?.lowercased() != "cn" && !UserDefaults.standard.bool(forKey: "legacyNotificationsFix")
         } else {
             return false
         }
@@ -145,7 +145,8 @@ class CallKitProviderDelegate: NSObject, CXProviderDelegate {
     }
     
     private static func providerConfiguration() -> CXProviderConfiguration {
-        let providerConfiguration = CXProviderConfiguration(localizedName: "Telegram")
+        // MARK: Swiftgram
+        let providerConfiguration = CXProviderConfiguration(localizedName: "Swiftgram")
         
         providerConfiguration.supportsVideo = true
         providerConfiguration.maximumCallsPerCallGroup = 1

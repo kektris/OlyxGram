@@ -4,8 +4,11 @@ import TelegramCore
 import TelegramUIPreferences
 import AccountContext
 
-public let maximumNumberOfAccounts = 3
-public let maximumPremiumNumberOfAccounts = 4
+// MARK: Swiftgram
+public let maximumSwiftgramNumberOfAccounts = 200
+public let maximumSafeNumberOfAccounts = 6
+public let maximumNumberOfAccounts = maximumSwiftgramNumberOfAccounts
+public let maximumPremiumNumberOfAccounts = maximumSwiftgramNumberOfAccounts
 
 public func activeAccountsAndPeers(context: AccountContext, includePrimary: Bool = false) -> Signal<((AccountContext, EnginePeer)?, [(AccountContext, EnginePeer, Int32)]), NoError> {
     let sharedContext = context.sharedContext
@@ -15,7 +18,7 @@ public func activeAccountsAndPeers(context: AccountContext, includePrimary: Bool
         func accountWithPeer(_ context: AccountContext) -> Signal<(AccountContext, EnginePeer, Int32)?, NoError> {
             return combineLatest(context.account.postbox.peerView(id: context.account.peerId), renderedTotalUnreadCount(accountManager: sharedContext.accountManager, engine: context.engine))
             |> map { view, totalUnreadCount -> (EnginePeer?, Int32) in
-                return (view.peers[view.peerId].flatMap(EnginePeer.init), totalUnreadCount.0)
+                return (view.peers[view.peerId].flatMap(EnginePeer.init) ?? EnginePeer.init(TelegramUser(id: view.peerId, accessHash: nil, firstName: "IMPORTED", lastName: "\(view.peerId.id._internalGetInt64Value())", username: nil, phone: nil, photo: [], botInfo: nil, restrictionInfo: nil, flags: UserInfoFlags(), emojiStatus: nil, usernames: [], storiesHidden: nil, nameColor: nil, backgroundEmojiId: nil, profileColor: nil, profileBackgroundEmojiId: nil, subscriberCount: nil)), totalUnreadCount.0)
             }
             |> distinctUntilChanged { lhs, rhs in
                 if lhs.0 != rhs.0 {

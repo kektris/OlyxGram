@@ -18,6 +18,8 @@ import NotificationsPresentationData
 import RangeSet
 import ConvertOpusToAAC
 
+private let LEGACY_NOTIFICATIONS_FIX: Bool = UserDefaults.standard.bool(forKey: "legacyNotificationsFix")
+
 private let queue = Queue()
 
 private var installedSharedLogger = false
@@ -496,14 +498,16 @@ private struct NotificationContent: CustomStringConvertible {
     var userInfo: [AnyHashable: Any] = [:]
     var attachments: [UNNotificationAttachment] = []
     var silent = false
+    var isEmpty: Bool
 
     var senderPerson: INPerson?
     var senderImage: INImage?
     
     var isLockedMessage: String?
     
-    init(isLockedMessage: String?) {
+    init(isLockedMessage: String?, isEmpty: Bool = false) {
         self.isLockedMessage = isLockedMessage
+        self.isEmpty = isEmpty
     }
 
     var description: String {
@@ -519,6 +523,7 @@ private struct NotificationContent: CustomStringConvertible {
         string += " senderImage: \(self.senderImage != nil ? "non-empty" : "empty"),\n"
         string += " isLockedMessage: \(String(describing: self.isLockedMessage)),\n"
         string += " attachments: \(self.attachments),\n"
+        string += " isEmpty: \(self.isEmpty),\n"
         string += "}"
         return string
     }
@@ -636,6 +641,16 @@ private struct NotificationContent: CustomStringConvertible {
                 } catch let e {
                     print("Exception: \(e)")
                 }
+            }
+        }
+        
+        // MARK: Swiftgram
+        if self.isEmpty && LEGACY_NOTIFICATIONS_FIX {
+            content.title = " "
+            content.threadIdentifier = "empty-notification"
+            if #available(iOSApplicationExtension 15.0, iOS 15.0, *) {
+                content.interruptionLevel = .passive
+                content.relevanceScore = 0.0
             }
         }
 
@@ -1001,7 +1016,7 @@ private final class NotificationServiceHandler {
                             action = .logout
                         case "MESSAGE_MUTED":
                             if let peerId = peerId {
-                                action = .poll(peerId: peerId, content: NotificationContent(isLockedMessage: nil), messageId: nil, reportDelivery: false)
+                                action = .poll(peerId: peerId, content: NotificationContent(isLockedMessage: nil, isEmpty: true), messageId: nil, reportDelivery: false)
                             }
                         case "MESSAGE_DELETED":
                             if let peerId = peerId {
@@ -1251,7 +1266,7 @@ private final class NotificationServiceHandler {
                         case .logout:
                             Logger.shared.log("NotificationService \(episode)", "Will logout")
 
-                            let content = NotificationContent(isLockedMessage: nil)
+                            let content = NotificationContent(isLockedMessage: nil, isEmpty: true)
                             updateCurrentContent(content)
                             completed()
                         case let .poll(peerId, initialContent, messageId, reportDelivery):
@@ -1720,7 +1735,7 @@ private final class NotificationServiceHandler {
 
                                     queue.async {
                                         guard let strongSelf = self, let stateManager = strongSelf.stateManager else {
-                                            let content = NotificationContent(isLockedMessage: isLockedMessage)
+                                            let content = NotificationContent(isLockedMessage: isLockedMessage, isEmpty: true)
                                             updateCurrentContent(content)
                                             completed()
                                             return
@@ -2008,7 +2023,7 @@ private final class NotificationServiceHandler {
                                             postbox: stateManager.postbox
                                         )
                                         |> deliverOn(strongSelf.queue)).start(next: { value in
-                                            var content = NotificationContent(isLockedMessage: nil)
+                                            var content = NotificationContent(isLockedMessage: nil, isEmpty: true)
                                             if isCurrentAccount {
                                                 content.badge = Int(value.0)
                                             }
@@ -2050,7 +2065,7 @@ private final class NotificationServiceHandler {
                                 }
                                 
                                 let completeRemoval: () -> Void = {
-                                    let content = NotificationContent(isLockedMessage: nil)
+                                    let content = NotificationContent(isLockedMessage: nil, isEmpty: true)
                                     Logger.shared.log("NotificationService \(episode)", "Updating content to \(content)")
                                     
                                     updateCurrentContent(content)
@@ -2102,7 +2117,7 @@ private final class NotificationServiceHandler {
                                             postbox: stateManager.postbox
                                         )
                                         |> deliverOn(strongSelf.queue)).start(next: { value in
-                                            var content = NotificationContent(isLockedMessage: nil)
+                                            var content = NotificationContent(isLockedMessage: nil, isEmpty: true)
                                             if isCurrentAccount {
                                                 content.badge = Int(value.0)
                                             }
@@ -2143,7 +2158,7 @@ private final class NotificationServiceHandler {
                                     }
 
                                     let completeRemoval: () -> Void = {
-                                        let content = NotificationContent(isLockedMessage: nil)
+                                        let content = NotificationContent(isLockedMessage: nil, isEmpty: true)
                                         updateCurrentContent(content)
                                         
                                         completed()
@@ -2196,9 +2211,68 @@ final class NotificationService: UNNotificationServiceExtension {
     private let content = Atomic<NotificationContent?>(value: nil)
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var episode: String?
+    // MARK: Swiftgram
+    private var emptyNotificationsRemoved: Bool = false
+    private var notificationRemovalTries: Int32 = 0
+    private let maxNotificationRemovalTries: Int32 = 30
     
     override init() {
         super.init()
+    }
+    
+    // MARK: Swiftgram
+    func removeEmptyNotificationsOnce() {
+        if !LEGACY_NOTIFICATIONS_FIX {
+            return
+        }
+        var emptyNotifications: [String] = []
+        UNUserNotificationCenter.current().getDeliveredNotifications(completionHandler: { notifications in
+            for notification in notifications {
+                if notification.request.content.threadIdentifier == "empty-notification" {
+                    emptyNotifications.append(notification.request.identifier)
+                }
+            }
+            if !emptyNotifications.isEmpty {
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: emptyNotifications)
+                #if DEBUG
+                NSLog("Empty notifications removed once. Count \(emptyNotifications.count)")
+                #endif
+            }
+        })
+    }
+    
+    func removeEmptyNotifications() {
+        if !LEGACY_NOTIFICATIONS_FIX {
+            return
+        }
+        self.notificationRemovalTries += 1
+        if self.emptyNotificationsRemoved || self.notificationRemovalTries > self.maxNotificationRemovalTries  {
+            #if DEBUG
+            NSLog("Notification removal try rejected \(self.notificationRemovalTries)")
+            #endif
+            return
+        }
+        var emptyNotifications: [String] = []
+        #if DEBUG
+        NSLog("Notification removal try \(notificationRemovalTries)")
+        #endif
+        UNUserNotificationCenter.current().getDeliveredNotifications(completionHandler: { notifications in
+            for notification in notifications {
+                if notification.request.content.threadIdentifier == "empty-notification" {
+                    emptyNotifications.append(notification.request.identifier)
+                }
+            }
+            if !emptyNotifications.isEmpty {
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: emptyNotifications)
+                self.emptyNotificationsRemoved = true
+                #if DEBUG
+                NSLog("Empty notifications removed on try \(self.notificationRemovalTries). Count \(emptyNotifications.count)")
+                #endif
+            } else {
+                self.removeEmptyNotifications()
+            }
+        })
+        
     }
     
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
@@ -2231,7 +2305,12 @@ final class NotificationService: UNNotificationServiceExtension {
                         strongSelf.contentHandler = nil
                         
                         if let content = content.with({ $0 }) {
+                            // MARK: Swiftgram
+                            strongSelf.removeEmptyNotificationsOnce()
                             contentHandler(content.generate())
+                            if content.isEmpty {
+                                strongSelf.removeEmptyNotifications()
+                            }
                         } else if let initialContent = strongSelf.initialContent {
                             contentHandler(initialContent)
                         }
