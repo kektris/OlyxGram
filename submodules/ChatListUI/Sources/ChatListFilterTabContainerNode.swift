@@ -591,6 +591,7 @@ public final class ChatListFilterTabContainerNode: ASDisplayNode {
     private var backgroundNode: NavigationBackgroundNode? = nil
     
     public init(inline: Bool = false, context: AccountContext) {
+        self.context = context
         self.scrollNode = ASScrollNode()
         
         self.selectedLineNode = ASImageNode()
@@ -600,10 +601,8 @@ public final class ChatListFilterTabContainerNode: ASDisplayNode {
         // MARK: Swiftgram
         self.inline = inline
         if self.inline {
-            if let context = context {
-                let presentationData = context.sharedContext.currentPresentationData.with { $0 }
-                self.backgroundNode = NavigationBackgroundNode(color: presentationData.theme.rootController.navigationBar.blurredBackgroundColor)
-            }
+            let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+            self.backgroundNode = NavigationBackgroundNode(color: presentationData.theme.rootController.navigationBar.blurredBackgroundColor)
         }
         
         super.init()
