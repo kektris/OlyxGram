@@ -82,6 +82,7 @@ public class SGSimpleSettings {
         case disableChatSwipeOptions
         case disableDeleteChatSwipeOption
         case disableGalleryCamera
+        case disableGalleryCameraPreview
         case disableSendAsButton
         case disableSnapDeletionEffect
         case stickerSize
@@ -181,6 +182,7 @@ public class SGSimpleSettings {
         Keys.disableChatSwipeOptions.rawValue: false,
         Keys.disableDeleteChatSwipeOption.rawValue: false,
         Keys.disableGalleryCamera.rawValue: false,
+        Keys.disableGalleryCameraPreview.rawValue: false,
         Keys.disableSendAsButton.rawValue: false,
         Keys.disableSnapDeletionEffect.rawValue: false,
         Keys.stickerSize.rawValue: 100,
@@ -310,6 +312,9 @@ public class SGSimpleSettings {
 
     @UserDefault(key: Keys.disableGalleryCamera.rawValue)
     public var disableGalleryCamera: Bool
+
+    @UserDefault(key: Keys.disableGalleryCameraPreview.rawValue)
+    public var disableGalleryCameraPreview: Bool
 
     @UserDefault(key: Keys.disableSendAsButton.rawValue)
     public var disableSendAsButton: Bool

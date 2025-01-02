@@ -76,6 +76,7 @@ private enum SGBoolSetting: String {
     case disableScrollToNextTopic
     case disableChatSwipeOptions
     case disableGalleryCamera
+    case disableGalleryCameraPreview
     case disableSendAsButton
     case disableSnapDeletionEffect
     case stickerTimestamp
@@ -264,6 +265,7 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
     entries.append(.toggle(id: id.count, section: .other, settingName: .disableSnapDeletionEffect, value: !SGSimpleSettings.shared.disableSnapDeletionEffect, text: i18n("Settings.SnapDeletionEffect", lang), enabled: true))
     entries.append(.toggle(id: id.count, section: .other, settingName: .disableSendAsButton, value: !SGSimpleSettings.shared.disableSendAsButton, text: i18n("Settings.SendAsButton", lang, presentationData.strings.Conversation_SendMesageAs), enabled: true))
     entries.append(.toggle(id: id.count, section: .other, settingName: .disableGalleryCamera, value: !SGSimpleSettings.shared.disableGalleryCamera, text: i18n("Settings.GalleryCamera", lang), enabled: true))
+    entries.append(.toggle(id: id.count, section: .other, settingName: .disableGalleryCameraPreview, value: !SGSimpleSettings.shared.disableGalleryCameraPreview, text: i18n("Settings.GalleryCameraPreview", lang), enabled: !SGSimpleSettings.shared.disableGalleryCamera))
     entries.append(.toggle(id: id.count, section: .other, settingName: .disableScrollToNextChannel, value: !SGSimpleSettings.shared.disableScrollToNextChannel, text: i18n("Settings.PullToNextChannel", lang), enabled: true))
     entries.append(.toggle(id: id.count, section: .other, settingName: .disableScrollToNextTopic, value: !SGSimpleSettings.shared.disableScrollToNextTopic, text: i18n("Settings.PullToNextTopic", lang), enabled: true))
     entries.append(.toggle(id: id.count, section: .other, settingName: .hideReactions, value: SGSimpleSettings.shared.hideReactions, text: i18n("Settings.HideReactions", lang), enabled: true))
@@ -410,6 +412,9 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
             askForRestart?()
         case .disableGalleryCamera:
             SGSimpleSettings.shared.disableGalleryCamera = !value
+            simplePromise.set(true)
+        case .disableGalleryCameraPreview:
+            SGSimpleSettings.shared.disableGalleryCameraPreview = !value
         case .disableSendAsButton:
             SGSimpleSettings.shared.disableSendAsButton = !value
         case .disableSnapDeletionEffect:
