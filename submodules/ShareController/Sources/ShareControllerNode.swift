@@ -666,30 +666,38 @@ final class ShareControllerNode: ViewControllerTracingNode, ASScrollViewDelegate
         }
         
         // MARK: Swiftgram
-        // Base accessibility setup
-        self.isAccessibilityElement = false // Container should not be accessible itself
-        self.accessibilityViewIsModal = true // Modal view should trap accessibility focus
-        self.controller?.accessibilityViewIsModal = true
-        self.shouldGroupAccessibilityChildren = false // Allow children to be accessible individually
-        
-        // Cancel button accessibility
+        // Replace your current accessibility setup with this:
+        self.isAccessibilityElement = false
+        self.accessibilityViewIsModal = true
+        self.shouldGroupAccessibilityChildren = false
+
+        // Make dim node not accessible
+        self.dimNode.isAccessibilityElement = false
+
+        // Wrapping scroll node setup
+        self.wrappingScrollNode.isAccessibilityElement = false
+        self.wrappingScrollNode.accessibilityViewIsModal = true
+        self.wrappingScrollNode.shouldGroupAccessibilityChildren = true
+
+        // Content container setup
+        self.contentContainerNode.isAccessibilityElement = false
+        self.contentContainerNode.accessibilityViewIsModal = true
+        self.contentContainerNode.shouldGroupAccessibilityChildren = true
+        self.contentContainerNode.accessibilityLabel = self.presentationData.strings.BoostGift_SelectRecipients
+
+        // Cancel button setup
+        self.cancelButtonNode.isAccessibilityElement = true
         self.cancelButtonNode.accessibilityLabel = self.presentationData.strings.Common_Cancel
         self.cancelButtonNode.accessibilityTraits = .button
-        
-        // Action button accessibility
+
+        // Action button setup
+        self.actionButtonNode.isAccessibilityElement = true
         self.actionButtonNode.accessibilityLabel = "Send"
-        self.actionButtonNode.accessibilityTraits = [.button]
-        
-        // if actionButtonNode is visible, contentContainerNode under it should not be voiceOver accessible
-        
-        // Input field accessibility
+        self.actionButtonNode.accessibilityTraits = .button
+
+        // Input field setup
+        self.inputFieldNode.isAccessibilityElement = true
         self.inputFieldNode.accessibilityLabel = "Comment"
-        //        self.inputFieldNode.accessibilityTraits = .textField
-        
-        // Content container accessibility
-        self.contentContainerNode.accessibilityLabel = self.presentationData.strings.BoostGift_SelectRecipients
-        self.contentContainerNode.isAccessibilityElement = false
-        self.contentContainerNode.shouldGroupAccessibilityChildren = true
     }
     
     deinit {
@@ -702,6 +710,13 @@ final class ShareControllerNode: ViewControllerTracingNode, ASScrollViewDelegate
         if #available(iOSApplicationExtension 11.0, iOS 11.0, *) {
             self.wrappingScrollNode.view.contentInsetAdjustmentBehavior = .never
         }
+        
+        // Make the container view trap accessibility focus
+        self.view.accessibilityViewIsModal = true
+        self.wrappingScrollNode.view.accessibilityViewIsModal = true
+        
+        // If needed, set a label for VoiceOver
+        self.view.accessibilityLabel = "Share with"
     }
     
     func transitionToPeerTopics(_ peer: EngineRenderedPeer) {
