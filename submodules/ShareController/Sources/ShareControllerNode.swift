@@ -664,6 +664,32 @@ final class ShareControllerNode: ViewControllerTracingNode, ASScrollViewDelegate
         if self.presetText != nil {
             self.setActionNodesHidden(false, inputField: true, actions: true, animated: false)
         }
+        
+        // MARK: Swiftgram
+        // Base accessibility setup
+        self.isAccessibilityElement = false // Container should not be accessible itself
+        self.accessibilityViewIsModal = true // Modal view should trap accessibility focus
+        self.controller?.accessibilityViewIsModal = true
+        self.shouldGroupAccessibilityChildren = false // Allow children to be accessible individually
+        
+        // Cancel button accessibility
+        self.cancelButtonNode.accessibilityLabel = self.presentationData.strings.Common_Cancel
+        self.cancelButtonNode.accessibilityTraits = .button
+        
+        // Action button accessibility
+        self.actionButtonNode.accessibilityLabel = "Send"
+        self.actionButtonNode.accessibilityTraits = [.button]
+        
+        // if actionButtonNode is visible, contentContainerNode under it should not be voiceOver accessible
+        
+        // Input field accessibility
+        self.inputFieldNode.accessibilityLabel = "Comment"
+        //        self.inputFieldNode.accessibilityTraits = .textField
+        
+        // Content container accessibility
+        self.contentContainerNode.accessibilityLabel = self.presentationData.strings.BoostGift_SelectRecipients
+        self.contentContainerNode.isAccessibilityElement = false
+        self.contentContainerNode.shouldGroupAccessibilityChildren = true
     }
     
     deinit {
