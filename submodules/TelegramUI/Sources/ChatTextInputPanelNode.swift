@@ -1,7 +1,7 @@
 // MARK: Swiftgram
 import TelegramUIPreferences
 import SGSimpleSettings
-//import SwiftUI
+import SwiftUI
 
 import Foundation
 import UIKit
@@ -615,8 +615,7 @@ class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDelegate, Ch
     // MARK: Swiftgram
     private var sendWithReturnKey: Bool
     private var sendWithReturnKeyDisposable: Disposable?
-//    private var toolbarHostingController: Any? //  UIHostingController<ChatToolbarView>?
-//    private var toolbarObserver: NSObjectProtocol?
+    private var toolbarHostingController: Any? //  UIHostingController<ChatToolbarView>?
     
     var inputTextState: ChatTextInputState {
         if let textInputNode = self.textInputNode {
@@ -1213,16 +1212,17 @@ class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDelegate, Ch
         textInputNode.textView.returnKeyType = self.sendWithReturnKey ? .send : .default
         self.textInputNode = textInputNode
         
-//        // After creating textInputNode
-//        if #available(iOS 13.0, *) {
-//            let toolbarView = ChatToolbarView()
-//            let toolbarHostingController = UIHostingController(rootView: toolbarView)
-//            toolbarHostingController.view.frame = CGRect(x: 0, y: 0, width: textInputNode.frame.width, height: 88/*44*/)
-//            toolbarHostingController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-//            self.toolbarHostingController = toolbarHostingController
-//            self.textInputNode?.textView.inputAccessoryView = toolbarHostingController.view
-//        }
-        
+        #if DEBUG
+        if #available(iOS 13.0, *) {
+            let toolbarView = ChatToolbarView()
+            let toolbarHostingController = UIHostingController(rootView: toolbarView)
+            toolbarHostingController.view.frame = CGRect(x: 0, y: 0, width: textInputNode.frame.width, height: 88/*44*/)
+            toolbarHostingController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            self.toolbarHostingController = toolbarHostingController
+            self.textInputNode?.textView.inputAccessoryView = toolbarHostingController.view
+        }
+        #endif
+
         var accessoryButtonsWidth: CGFloat = 0.0
         var firstButton = true
         for (_, button) in self.accessoryItemButtons {
@@ -5057,34 +5057,35 @@ private final class BoostSlowModeButton: HighlightTrackingButtonNode {
 }
 
 
-//@available(iOS 13.0, *)
-//struct ChatToolbarView: View {
-//    var body: some View {
-//        HStack {
-//            Button(action: {
-//                // Action 1
-//            }) {
-//                Image(systemName: "photo")
-//            }
-//            .padding(.horizontal)
-//            
-//            Button(action: {
-//                // Action 2
-//            }) {
-//                Image(systemName: "camera")
-//            }
-//            .padding(.horizontal)
-//            
-//            Spacer()
-//            
-//            Button(action: {
-//                // Action 3
-//            }) {
-//                Image(systemName: "keyboard")
-//            }
-//            .padding(.horizontal)
-//        }
-//        .padding(.vertical, 8)
+@available(iOS 13.0, *)
+struct ChatToolbarView: View {
+    var body: some View {
+        HStack {
+            Button(action: {
+                // Action 1
+            }) {
+                Image(systemName: "photo")
+            }
+            .padding(.horizontal)
+            
+            Button(action: {
+                // Action 2
+            }) {
+                Image(systemName: "camera")
+            }
+            .padding(.horizontal)
+            
+            Spacer()
+            
+            Button(action: {
+                // Action 3
+            }) {
+                Image(systemName: "keyboard")
+            }
+            .padding(.horizontal)
+        }
+        .padding(.vertical, 8)
 //        .background(Color(UIColor.systemBackground))
-//    }
-//}
+        .background(Color(UIColor.red))
+    }
+}
