@@ -5379,5 +5379,7 @@ struct ToolbarButtonStyle: ButtonStyle {
             .frame(width: 36, height: 36, alignment: .center)
             .background(Color(UIColor.tertiarySystemBackground))
             .cornerRadius(8)
+            // TODO(swiftgram): Does not work for fast taps (like mine)
+            .opacity(configuration.isPressed ? 0.4 : 1.0)
     }
 }
