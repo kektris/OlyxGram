@@ -843,6 +843,7 @@ private enum SGDebugActions: String {
 private enum SGDebugToggles: String {
     case forceImmediateShareSheet
     case legacyNotificationsFix
+    case inputToolbar
 }
 
 
@@ -860,6 +861,9 @@ private func SGDebugControllerEntries(presentationData: PresentationData) -> [SG
     if SGSimpleSettings.shared.b {
         entries.append(.disclosure(id: id.count, section: .base, link: .sessionBackupManager, text: "Session Backup"))
         entries.append(.disclosure(id: id.count, section: .base, link: .messageFilter, text: "Message Filter"))
+        if #available(iOS 13.0, *) {
+            entries.append(.toggle(id: id.count, section: .base, settingName: .inputToolbar, value: SGSimpleSettings.shared.inputToolbar, text: "Message Formatting Toolbar", enabled: true))
+        }
     }
     entries.append(.action(id: id.count, section: .base, actionType: .clearRegDateCache, text: "Clear Regdate cache", kind: .generic))
     entries.append(.toggle(id: id.count, section: .base, settingName: .forceImmediateShareSheet, value: SGSimpleSettings.shared.forceSystemSharing, text: "Force System Share Sheet", enabled: true))
@@ -884,6 +888,8 @@ public func sgDebugController(context: AccountContext) -> ViewController {
                 SGSimpleSettings.shared.forceSystemSharing = value
             case .legacyNotificationsFix:
                 SGSimpleSettings.shared.legacyNotificationsFix = value
+            case .inputToolbar:
+                SGSimpleSettings.shared.inputToolbar = value
         }
     }, openDisclosureLink: { link in
         let presentationData = context.sharedContext.currentPresentationData.with { $0 }

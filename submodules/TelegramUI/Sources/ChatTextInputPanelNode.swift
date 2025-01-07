@@ -929,10 +929,19 @@ class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDelegate, Ch
                     textInputNode.textView.returnKeyType = strongSelf.sendWithReturnKey ? .send : .default
                     textInputNode.textView.reloadInputViews()
                 }
+                if #available(iOS 13.0, *), let toolbar = strongSelf.toolbarHostingController as? UIHostingController<ChatToolbarView> {
+                    toolbar.rootView.setShowNewLine(value)
+                }
             }
         })
+        self.initToolbar()
         
         self.addSubnode(self.clippingNode)
+        
+        // MARK: Swiftgram
+        if #available(iOS 13.0, *), let toolbarHostingController = self.toolbarHostingController as? UIHostingController<ChatToolbarView> {
+            self.view.addSubview(toolbarHostingController.view)
+        }
         
         self.sendAsAvatarContainerNode.activated = { [weak self] gesture, _ in
             guard let strongSelf = self else {
@@ -1212,16 +1221,6 @@ class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDelegate, Ch
         textInputNode.textView.returnKeyType = self.sendWithReturnKey ? .send : .default
         self.textInputNode = textInputNode
         
-        #if DEBUG
-        if #available(iOS 13.0, *) {
-            let toolbarView = ChatToolbarView()
-            let toolbarHostingController = UIHostingController(rootView: toolbarView)
-            toolbarHostingController.view.frame = CGRect(x: 0, y: 0, width: textInputNode.frame.width, height: 88/*44*/)
-            toolbarHostingController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            self.toolbarHostingController = toolbarHostingController
-            self.textInputNode?.textView.inputAccessoryView = toolbarHostingController.view
-        }
-        #endif
 
         var accessoryButtonsWidth: CGFloat = 0.0
         var firstButton = true
@@ -2128,7 +2127,8 @@ class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDelegate, Ch
         if buttonTitleUpdated && !transition.isAnimated {
             transition = .animated(duration: 0.3, curve: .easeInOut)
         }
-        
+        // MARK: Swiftgram
+        let originalLeftInset = leftInset
         var leftInset = leftInset
         
         var textInputBackgroundWidthOffset: CGFloat = 0.0
@@ -2938,7 +2938,13 @@ class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDelegate, Ch
             self.viewOnceButton.isHidden = true
         }
         
-        return panelHeight
+        // MARK: Swiftgram
+        var toolbarOffset: CGFloat = 0.0
+        if !displayBotStartButton {
+            toolbarOffset = layoutToolbar(transition: transition, panelHeight: panelHeight, width: width, leftInset: originalLeftInset, rightInset: rightInset)
+        }
+
+        return panelHeight + toolbarOffset
     }
     
     @objc private func slowModeButtonPressed() {
@@ -5057,35 +5063,321 @@ private final class BoostSlowModeButton: HighlightTrackingButtonNode {
 }
 
 
+// MARK: Swiftgram
+extension ChatTextInputPanelNode {
+    
+    func selectLastWordIfIdle() {
+        self.interfaceInteraction?.updateTextInputStateAndMode { current, inputMode in
+            // No changes to current selection
+            if !current.selectionRange.isEmpty {
+                return (current, inputMode)
+            }
+            
+            let inputText = (current.inputText.mutableCopy() as? NSMutableAttributedString) ?? NSMutableAttributedString()
+            
+            // If text is empty, return current state
+            guard inputText.length > 0 else {
+                return (current, inputMode)
+            }
+            
+            let plainText = inputText.string
+            let nsString = plainText as NSString
+            
+            // Create character set for word boundaries (spaces and newlines)
+            let wordBoundaries = CharacterSet.whitespacesAndNewlines
+            
+            // Find last non-whitespace character
+            var endIndex = nsString.length - 1
+            while endIndex >= 0 &&
+                  (nsString.substring(with: NSRange(location: endIndex, length: 1)) as NSString)
+                    .rangeOfCharacter(from: wordBoundaries).location != NSNotFound {
+                endIndex -= 1
+            }
+            
+            // If we only had whitespace, return current state
+            guard endIndex >= 0 else {
+                return (current, inputMode)
+            }
+            
+            // Find start of the last word by looking backwards for whitespace
+            var startIndex = endIndex
+            while startIndex > 0 {
+                let char = nsString.substring(with: NSRange(location: startIndex - 1, length: 1))
+                if (char as NSString).rangeOfCharacter(from: wordBoundaries).location != NSNotFound {
+                    break
+                }
+                startIndex -= 1
+            }
+            
+            // Create range for the last word
+            let wordLength = endIndex - startIndex + 1
+            let lastWordRange = NSRange(location: startIndex, length: wordLength)
+            
+            // Create new selection range
+            let newSelectionRange = lastWordRange.location ..< (lastWordRange.location + lastWordRange.length)
+            
+            return (ChatTextInputState(inputText: inputText, selectionRange: newSelectionRange), inputMode)
+        }
+    }
+    
+    func initToolbar() {
+        guard #available(iOS 13.0, *) else { return }
+        guard SGSimpleSettings.shared.inputToolbar else { return }
+        guard SGSimpleSettings.shared.b else { return }
+        let toolbarView = ChatToolbarView(
+            onQuote: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.selectLastWordIfIdle()
+                strongSelf.formatAttributesQuote(strongSelf)
+            },
+            onSpoiler: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.selectLastWordIfIdle()
+                strongSelf.formatAttributesSpoiler(strongSelf)
+            },
+            onBold: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.selectLastWordIfIdle()
+                strongSelf.formatAttributesBold(strongSelf)
+            },
+            onItalic: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.selectLastWordIfIdle()
+                strongSelf.formatAttributesItalic(strongSelf)
+            },
+            onMonospace: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.selectLastWordIfIdle()
+                strongSelf.formatAttributesMonospace(strongSelf)
+            },
+            onLink: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.selectLastWordIfIdle()
+                strongSelf.formatAttributesLink(self!)
+            },
+            onStrikethrough: { [weak self]
+                in guard let strongSelf = self else { return }
+                strongSelf.selectLastWordIfIdle()
+                strongSelf.formatAttributesStrikethrough(strongSelf)
+            },
+            onUnderline: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.selectLastWordIfIdle()
+                strongSelf.formatAttributesUnderline(strongSelf)
+            },
+            onCode: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.selectLastWordIfIdle()
+                strongSelf.formatAttributesCodeBlock(strongSelf)
+            },
+            onNewLine: { [weak self] in
+                guard let strongSelf = self else { return }
+                
+                strongSelf.interfaceInteraction?.updateTextInputStateAndMode { current, inputMode in
+                    let inputText = (current.inputText.mutableCopy() as? NSMutableAttributedString) ?? NSMutableAttributedString()
+                    
+                    // Check if there's selected text
+                    let hasSelection = current.selectionRange.count > 0
+                    
+                    if hasSelection {
+                        // Move selected text to new line
+                        let selectedText = inputText.attributedSubstring(from: NSRange(current.selectionRange))
+                        let newLineAttr = NSAttributedString(string: "\n")
+                        
+                        // Insert newline and selected text
+                        inputText.replaceCharacters(in: NSRange(current.selectionRange), with: newLineAttr)
+                        inputText.insert(selectedText, at: current.selectionRange.lowerBound + 1)
+                        
+                        // Update selection range to end of moved text
+                        let newPosition = current.selectionRange.lowerBound + 1 + selectedText.length
+                        return (ChatTextInputState(inputText: inputText, selectionRange: newPosition ..< newPosition), inputMode)
+                    } else {
+                        // Simple newline insertion at current position
+                        let attributedString = NSAttributedString(string: "\n")
+                        inputText.replaceCharacters(in: NSRange(current.selectionRange), with: attributedString)
+                        
+                        // Update cursor position
+                        let newPosition = current.selectionRange.lowerBound + attributedString.length
+                        return (ChatTextInputState(inputText: inputText, selectionRange: newPosition ..< newPosition), inputMode)
+                    }
+                }
+            },
+            // TODO(swiftgram): Binding
+            showNewLine: .constant(true), //.constant(self.sendWithReturnKey)
+            onClearFormatting: { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.interfaceInteraction?.updateTextInputStateAndMode { current, inputMode in
+                    return (chatTextInputAddFormattingAttribute(forceRemoveAll: true,current, attribute: ChatTextInputAttributes.allAttributes[0], value: nil), inputMode)
+                }
+            }
+        )
+        let toolbarHostingController = UIHostingController(rootView: toolbarView/*, ignoreSafeArea: true*/)
+        self.toolbarHostingController = toolbarHostingController
+        toolbarHostingController.view.backgroundColor = .clear
+        
+        // Disable "Swipe to go back" gesture when touching scrollview
+        self.view.interactiveTransitionGestureRecognizerTest = { [weak self] point in
+            if let self, let _ = (self.toolbarHostingController as? UIHostingController<ChatToolbarView>)?.view.hitTest(point, with: nil) {
+                return false
+            }
+            return true
+        }
+    }
+    
+    func layoutToolbar(transition: ContainedViewLayoutTransition, panelHeight: CGFloat, width: CGFloat, leftInset: CGFloat, rightInset: CGFloat) -> CGFloat {
+        var toolbarHeight: CGFloat = 0.0
+        var toolbarSpacing: CGFloat = 0.0
+        if #available(iOS 13.0, *) {
+            if let toolbarHostingController = self.toolbarHostingController as? UIHostingController<ChatToolbarView> {
+                toolbarHeight = 44.0
+                toolbarSpacing = 1.0
+                transition.updateFrame(view: toolbarHostingController.view, frame: CGRect(origin: CGPoint(x: leftInset, y: panelHeight + toolbarSpacing), size: CGSize(width: width - rightInset - leftInset, height: toolbarHeight)))
+            }
+        }
+        return toolbarHeight + toolbarSpacing
+    }
+
+}
+
+
+// MARK: Swiftgram
 @available(iOS 13.0, *)
 struct ChatToolbarView: View {
+    var onQuote: () -> Void
+    var onSpoiler: () -> Void
+    var onBold: () -> Void
+    var onItalic: () -> Void
+    var onMonospace: () -> Void
+    var onLink: () -> Void
+    var onStrikethrough: () -> Void
+    var onUnderline: () -> Void
+    var onCode: () -> Void
+    
+    var onNewLine: () -> Void
+    @Binding private var showNewLine: Bool
+    
+    var onClearFormatting: () -> Void
+    
+    public init(
+        onQuote: @escaping () -> Void,
+        onSpoiler: @escaping () -> Void,
+        onBold: @escaping () -> Void,
+        onItalic: @escaping () -> Void,
+        onMonospace: @escaping () -> Void,
+        onLink: @escaping () -> Void,
+        onStrikethrough: @escaping () -> Void,
+        onUnderline: @escaping () -> Void,
+        onCode: @escaping () -> Void,
+        onNewLine: @escaping () -> Void,
+        showNewLine: Binding<Bool>,
+        onClearFormatting: @escaping () -> Void
+    ) {
+        self.onQuote = onQuote
+        self.onSpoiler = onSpoiler
+        self.onBold = onBold
+        self.onItalic = onItalic
+        self.onMonospace = onMonospace
+        self.onLink = onLink
+        self.onStrikethrough = onStrikethrough
+        self.onUnderline = onUnderline
+        self.onCode = onCode
+        self.onNewLine = onNewLine
+        self._showNewLine = showNewLine
+        self.onClearFormatting = onClearFormatting
+    }
+    
+    public func setShowNewLine(_ value: Bool) {
+        self.showNewLine = value
+    }
+    
     var body: some View {
-        HStack {
-            Button(action: {
-                // Action 1
-            }) {
-                Image(systemName: "photo")
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                if showNewLine {
+                    Button(action: onNewLine) {
+                        Image(systemName: "return")
+                    }
+                    .buttonStyle(ToolbarButtonStyle())
+                }
+                Button(action: onClearFormatting) {
+                    Image(systemName: "pencil.slash")
+                }
+                .buttonStyle(ToolbarButtonStyle())
+                Spacer()
+                // Quote Button
+                Button(action: onQuote) {
+                    Image(systemName: "text.quote")
+                }
+                .buttonStyle(ToolbarButtonStyle())
+                
+                // Spoiler Button
+                Button(action: onSpoiler) {
+                    Image(systemName: "eye.slash")
+                }
+                .buttonStyle(ToolbarButtonStyle())
+                
+                // Bold Button
+                Button(action: onBold) {
+                    Image(systemName: "bold")
+                }
+                .buttonStyle(ToolbarButtonStyle())
+                
+                // Italic Button
+                Button(action: onItalic) {
+                    Image(systemName: "italic")
+                }
+                .buttonStyle(ToolbarButtonStyle())
+                
+                // Monospace Button
+                Button(action: onMonospace) {
+                    if #available(iOS 16.4, *) {
+                        Text("M").monospaced()
+                    } else {
+                        Text("M")
+                    }
+                }
+                .buttonStyle(ToolbarButtonStyle())
+                
+                // Link Button
+                Button(action: onLink) {
+                    Image(systemName: "link")
+                }
+                .buttonStyle(ToolbarButtonStyle())
+                
+                // Underline Button
+                Button(action: onUnderline) {
+                    Image(systemName: "underline")
+                }
+                .buttonStyle(ToolbarButtonStyle())
+                
+                
+                // Strikethrough Button
+                Button(action: onStrikethrough) {
+                    Image(systemName: "strikethrough")
+                }
+                .buttonStyle(ToolbarButtonStyle())
+                
+                
+                // Code Button
+                Button(action: onCode) {
+                    Image(systemName: "chevron.left.forwardslash.chevron.right")
+                }
+                .buttonStyle(ToolbarButtonStyle())
             }
-            .padding(.horizontal)
-            
-            Button(action: {
-                // Action 2
-            }) {
-                Image(systemName: "camera")
-            }
-            .padding(.horizontal)
-            
-            Spacer()
-            
-            Button(action: {
-                // Action 3
-            }) {
-                Image(systemName: "keyboard")
-            }
-            .padding(.horizontal)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
         }
-        .padding(.vertical, 8)
-//        .background(Color(UIColor.systemBackground))
-        .background(Color(UIColor.red))
+        .background(Color(UIColor.clear))
+    }
+}
+
+@available(iOS 13.0, *)
+struct ToolbarButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 17))
+            .frame(width: 36, height: 36, alignment: .center)
+            .background(Color(UIColor.tertiarySystemBackground))
+            .cornerRadius(8)
     }
 }

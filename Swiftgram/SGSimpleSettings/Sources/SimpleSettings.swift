@@ -34,7 +34,8 @@ public class SGSimpleSettings {
             { let _ = self.disableSendAsButton },
             { let _ = self.disableSnapDeletionEffect },
             { let _ = self.startTelescopeWithRearCam },
-            { let _ = self.hideRecordingButton }
+            { let _ = self.hideRecordingButton },
+            { let _ = self.inputToolbar }
         ]
 
         tasks.forEach { task in
@@ -109,6 +110,7 @@ public class SGSimpleSettings {
         case videoPIPSwipeDirection
         case legacyNotificationsFix
         case messageFilterKeywords
+        case inputToolbar
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -207,7 +209,8 @@ public class SGSimpleSettings {
         Keys.confirmCalls.rawValue: true,
         Keys.videoPIPSwipeDirection.rawValue: VideoPIPSwipeDirection.up.rawValue,
         Keys.legacyNotificationsFix.rawValue: false,
-        Keys.messageFilterKeywords.rawValue: []
+        Keys.messageFilterKeywords.rawValue: [],
+        Keys.inputToolbar.rawValue: false
     ]
     
     @UserDefault(key: Keys.hidePhoneInSettings.rawValue)
@@ -393,6 +396,9 @@ public class SGSimpleSettings {
     
     @UserDefault(key: Keys.messageFilterKeywords.rawValue)
     public var messageFilterKeywords: [String]
+    
+    @UserDefault(key: Keys.inputToolbar.rawValue)
+    public var inputToolbar: Bool
 }
 
 extension SGSimpleSettings {
