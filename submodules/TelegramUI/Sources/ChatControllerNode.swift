@@ -3020,11 +3020,6 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         self.derivedLayoutState = ChatControllerNodeDerivedLayoutState(inputContextPanelsFrame: inputContextPanelsFrame, inputContextPanelsOverMainPanelFrame: inputContextPanelsOverMainPanelFrame, inputNodeHeight: inputNodeHeightAndOverflow?.0, inputNodeAdditionalHeight: inputNodeHeightAndOverflow?.1, upperInputPositionBound: inputNodeHeightAndOverflow?.0 != nil ? self.upperInputPositionBound : nil)
         
         //self.notifyTransitionCompletionListeners(transition: transition)
-        print("inputPanelBottomInset:", inputPanelBottomInset, inputPanelBottomInsetTerm)
-        print("layout.intrinsicInsets.bottom:", layout.intrinsicInsets.bottom)
-        print("layout.standardInputHeight", layout.standardInputHeight)
-        print("layout.standardKeyboardHeight", layout.standardKeyboardHeight)
-        self.layoutToolbar(transition: transition, inputPanelBottomInset: inputPanelBottomInset, standardInputHeight: layout.standardInputHeight, immediatelyLayoutInputPanelAndAnimateAppearance: immediatelyLayoutInputPanelAndAnimateAppearance)
     }
     
     private func updateInputPanelBackgroundExtension(transition: ContainedViewLayoutTransition) {
@@ -4623,49 +4618,6 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         if let inputPanelNode = self.inputPanelNode {
             transition.updateAlpha(node: inputPanelNode, alpha: overscrollNode == nil ? 1.0 : 0.0)
             transition.updateSublayerTransformOffset(layer: inputPanelNode.layer, offset: CGPoint(x: 0.0, y: overscrollNode == nil ? 0.0 : -5.0))
-        }
-    }
-}
-
-
-// MARK: Swiftgram
-extension ChatControllerNode {
-    
-    func layoutToolbar(transition: ContainedViewLayoutTransition, inputPanelBottomInset: CGFloat, standardInputHeight: CGFloat, immediatelyLayoutInputPanelAndAnimateAppearance: Bool) {
-        if let inputTextPanelNode = self.inputPanelNode as? ChatTextInputPanelNode,
-           let inputAccessoryView = inputTextPanelNode.textInputNode?.textView.inputAccessoryView, let textInputNode = inputTextPanelNode.textInputNode {
-            
-            print("inputTextPanelNode.frame: \(inputTextPanelNode.frame)")
-            print("textInputNode.frame: \(textInputNode.frame)")
-            print("inputPanelBottomInset: \(inputPanelBottomInset)")
-            
-            let newInputPanelFrame = CGRect(
-                origin: CGPoint(
-                    x: 0.0,
-                    y: standardInputHeight + inputAccessoryView.frame.size.height - inputPanelBottomInset
-                ),
-                size: inputAccessoryView.frame.size
-            )
-            print("newInputPanelFrame: \(newInputPanelFrame)")
-            
-            // Checking if toolbar should be visible depending on input state
-            var expectedAccessoryAlpha: CGFloat = 1.0
-            if self.chatPresentationInterfaceState.inputMode != .text {
-                expectedAccessoryAlpha = 0.0
-            } else {
-                expectedAccessoryAlpha = (inputTextPanelNode.textInputNode?.textView.isFirstResponder ?? false) ? 1.0 : 0.0
-            }
-            
-            // Combine frame and alpha updates in a single animation block
-            if immediatelyLayoutInputPanelAndAnimateAppearance {
-                inputAccessoryView.frame = newInputPanelFrame
-                inputAccessoryView.alpha = expectedAccessoryAlpha
-            } else {
-                transition.updateFrame(view: inputAccessoryView, frame: newInputPanelFrame)
-                inputAccessoryView.alpha = expectedAccessoryAlpha
-                // "Jumps" on closing keyboard
-//                transition.updateAlpha(layer: inputAccessoryView.layer, alpha: expectedAccessoryAlpha, beginWithCurrentState: true)
-            }
         }
     }
 }
