@@ -934,14 +934,11 @@ class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDelegate, Ch
                 }
             }
         })
-        self.initToolbar()
-        
+
         self.addSubnode(self.clippingNode)
         
         // MARK: Swiftgram
-        if #available(iOS 13.0, *), let toolbarHostingController = self.toolbarHostingController as? UIHostingController<ChatToolbarView> {
-            self.view.addSubview(toolbarHostingController.view)
-        }
+        self.initToolbarIfNeeded()
         
         self.sendAsAvatarContainerNode.activated = { [weak self] gesture, _ in
             guard let strongSelf = self else {
@@ -2940,9 +2937,7 @@ class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDelegate, Ch
         
         // MARK: Swiftgram
         var toolbarOffset: CGFloat = 0.0
-        if !displayBotStartButton {
-            toolbarOffset = layoutToolbar(transition: transition, panelHeight: panelHeight, width: width, leftInset: originalLeftInset, rightInset: rightInset)
-        }
+        toolbarOffset = layoutToolbar(transition: transition, panelHeight: panelHeight, width: width, leftInset: originalLeftInset, rightInset: rightInset, displayBotStartButton: displayBotStartButton)
 
         return panelHeight + toolbarOffset
     }
@@ -5122,10 +5117,11 @@ extension ChatTextInputPanelNode {
         }
     }
     
-    func initToolbar() {
+    func initToolbarIfNeeded() {
         guard #available(iOS 13.0, *) else { return }
         guard SGSimpleSettings.shared.inputToolbar else { return }
         guard SGSimpleSettings.shared.b else { return }
+        guard self.toolbarHostingController == nil else { return }
         let toolbarView = ChatToolbarView(
             onQuote: { [weak self] in
                 guard let strongSelf = self else { return }
@@ -5224,16 +5220,28 @@ extension ChatTextInputPanelNode {
             }
             return true
         }
+        
+        self.view.addSubview(toolbarHostingController.view)
     }
     
-    func layoutToolbar(transition: ContainedViewLayoutTransition, panelHeight: CGFloat, width: CGFloat, leftInset: CGFloat, rightInset: CGFloat) -> CGFloat {
+    func layoutToolbar(transition: ContainedViewLayoutTransition, panelHeight: CGFloat, width: CGFloat, leftInset: CGFloat, rightInset: CGFloat, displayBotStartButton: Bool) -> CGFloat {
         var toolbarHeight: CGFloat = 0.0
         var toolbarSpacing: CGFloat = 0.0
         if #available(iOS 13.0, *) {
             if let toolbarHostingController = self.toolbarHostingController as? UIHostingController<ChatToolbarView> {
-                toolbarHeight = 44.0
-                toolbarSpacing = 1.0
-                transition.updateFrame(view: toolbarHostingController.view, frame: CGRect(origin: CGPoint(x: leftInset, y: panelHeight + toolbarSpacing), size: CGSize(width: width - rightInset - leftInset, height: toolbarHeight)))
+                if displayBotStartButton {
+                    toolbarHostingController.view.isHidden = true
+                /*} else if !(textInputNode?.isFirstResponder() ?? false) {
+                    transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 0.0, completion: { _ in
+                        toolbarHostingController.view.isHidden = true
+                    })
+                }*/ else {
+                    toolbarHeight = 44.0
+                    toolbarSpacing = 1.0
+                    toolbarHostingController.view.isHidden = false
+                    transition.updateFrame(view: toolbarHostingController.view, frame: CGRect(origin: CGPoint(x: leftInset, y: panelHeight + toolbarSpacing), size: CGSize(width: width - rightInset - leftInset, height: toolbarHeight)))
+                    // transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 1.0)
+                }
             }
         }
         return toolbarHeight + toolbarSpacing
