@@ -898,6 +898,7 @@ public func sgDebugController(context: AccountContext) -> ViewController {
                 SGSimpleSettings.shared.forceSystemSharing = value
             case .legacyNotificationsFix:
                 SGSimpleSettings.shared.legacyNotificationsFix = value
+                SGSimpleSettings.shared.synchronizeShared()
             case .inputToolbar:
                 SGSimpleSettings.shared.inputToolbar = value
         }
@@ -910,6 +911,7 @@ public func sgDebugController(context: AccountContext) -> ViewController {
             case .pinnedMessageNotifications:
                 let setAction: (String) -> Void = { value in
                     SGSimpleSettings.shared.pinnedMessageNotifications = value
+                    SGSimpleSettings.shared.synchronizeShared()
                     simplePromise.set(true)
                 }
 
@@ -926,6 +928,7 @@ public func sgDebugController(context: AccountContext) -> ViewController {
             case .mentionsAndRepliesNotifications:
                 let setAction: (String) -> Void = { value in
                     SGSimpleSettings.shared.mentionsAndRepliesNotifications = value
+                    SGSimpleSettings.shared.synchronizeShared()
                     simplePromise.set(true)
                 }
 

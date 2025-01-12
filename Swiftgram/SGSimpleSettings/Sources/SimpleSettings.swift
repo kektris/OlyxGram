@@ -54,6 +54,12 @@ public class SGSimpleSettings {
         // dispatchGroup.notify(queue: DispatchQueue.main) {}
     }
     
+    public func synchronizeShared() {
+        if let groupUserDefaults = UserDefaults(suiteName: appGroupIdentifier) {
+            groupUserDefaults.synchronize()
+        }
+    }
+    
     public enum Keys: String, CaseIterable {
         case hidePhoneInSettings
         case showTabNames
