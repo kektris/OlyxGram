@@ -5231,16 +5231,16 @@ extension ChatTextInputPanelNode {
             if let toolbarHostingController = self.toolbarHostingController as? UIHostingController<ChatToolbarView> {
                 if displayBotStartButton {
                     toolbarHostingController.view.isHidden = true
-                /*} else if !(textInputNode?.isFirstResponder() ?? false) {
+                } else if !self.isFocused {
                     transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 0.0, completion: { _ in
                         toolbarHostingController.view.isHidden = true
                     })
-                }*/ else {
+                } else {
                     toolbarHeight = 44.0
                     toolbarSpacing = 1.0
                     toolbarHostingController.view.isHidden = false
                     transition.updateFrame(view: toolbarHostingController.view, frame: CGRect(origin: CGPoint(x: leftInset, y: panelHeight + toolbarSpacing), size: CGSize(width: width - rightInset - leftInset, height: toolbarHeight)))
-                    // transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 1.0)
+                    transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 1.0)
                 }
             }
         }
