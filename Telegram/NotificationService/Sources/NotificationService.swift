@@ -21,7 +21,9 @@ import ConvertOpusToAAC
 private let groupUserDefaults: UserDefaults? = UserDefaults(suiteName: "group.app.swiftgram.ios")
 private let LEGACY_NOTIFICATIONS_FIX: Bool = groupUserDefaults?.bool(forKey: "legacyNotificationsFix") ?? false
 private let PINNED_MESSAGE_ACTION: String = groupUserDefaults?.string(forKey: "pinnedMessageNotifications") ?? "default"
+private let PINNED_MESSAGE_ACTION_EXCEPTIONS: [String: String] = (groupUserDefaults?.dictionary(forKey: "pinnedMessageNotificationsExceptions") as? [String: String]) ?? [:]
 private let MENTION_AND_REPLY_ACTION: String = groupUserDefaults?.string(forKey: "mentionsAndRepliesNotifications") ?? "default"
+private let MENTION_AND_REPLY_ACTION_EXCEPTIONS: [String: String] = (groupUserDefaults?.dictionary(forKey: "mentionsAndRepliesNotificationsExceptions") as? [String: String]) ?? [:]
 
 private let queue = Queue()
 
@@ -505,16 +507,18 @@ private struct NotificationContent: CustomStringConvertible {
     var isEmpty: Bool
     var isMentionOrReply: Bool
     var isPinned: Bool = false
+    let chatId: Int64?
 
     var senderPerson: INPerson?
     var senderImage: INImage?
     
     var isLockedMessage: String?
     
-    init(isLockedMessage: String?, isEmpty: Bool = false, isMentionOrReply: Bool = false) {
+    init(isLockedMessage: String?, isEmpty: Bool = false, isMentionOrReply: Bool = false, chatId: Int64? = nil) {
         self.isLockedMessage = isLockedMessage
         self.isEmpty = isEmpty
         self.isMentionOrReply = isMentionOrReply
+        self.chatId = chatId
     }
 
     var description: String {
@@ -531,6 +535,7 @@ private struct NotificationContent: CustomStringConvertible {
         string += " isLockedMessage: \(String(describing: self.isLockedMessage)),\n"
         string += " attachments: \(self.attachments),\n"
         string += " isEmpty: \(self.isEmpty),\n"
+        string += " chatId: \(String(describing: self.chatId)),\n"
         string += " isMentionOrReply: \(self.isMentionOrReply),\n"
         string += " isPinned: \(self.isPinned),\n"
         string += " forceIsEmpty: \(self.forceIsEmpty),\n"
@@ -940,6 +945,10 @@ private final class NotificationServiceHandler {
                         return
                     }
                     let isMentionOrReply: Bool = payloadJson["mention"] as? String == "1"
+                    var chatId: Int64? = nil
+                    if let chatIdString = payloadJson["chat_id"] as? String {
+                        chatId = Int64(chatIdString)
+                    }
 
                     Logger.shared.log("NotificationService \(episode)", "Decrypted payload: \(payloadJson)")
 
@@ -1037,7 +1046,7 @@ private final class NotificationServiceHandler {
                             action = .logout
                         case "MESSAGE_MUTED":
                             if let peerId = peerId {
-                                action = .poll(peerId: peerId, content: NotificationContent(isLockedMessage: nil, isEmpty: true, isMentionOrReply: isMentionOrReply), messageId: nil, reportDelivery: false)
+                                action = .poll(peerId: peerId, content: NotificationContent(isLockedMessage: nil, isEmpty: true, isMentionOrReply: isMentionOrReply, chatId: chatId), messageId: nil, reportDelivery: false)
                             }
                         case "MESSAGE_DELETED":
                             if let peerId = peerId {
@@ -1088,7 +1097,7 @@ private final class NotificationServiceHandler {
                         }
                     } else {
                         if let aps = payloadJson["aps"] as? [String: Any], var peerId = peerId {
-                            var content: NotificationContent = NotificationContent(isLockedMessage: isLockedMessage, isMentionOrReply: isMentionOrReply)
+                            var content: NotificationContent = NotificationContent(isLockedMessage: isLockedMessage, isMentionOrReply: isMentionOrReply, chatId: chatId)
                             if let alert = aps["alert"] as? [String: Any] {
                                 if let topicTitleValue = payloadJson["topic_title"] as? String {
                                     topicTitle = topicTitleValue
@@ -1611,7 +1620,7 @@ private final class NotificationServiceHandler {
                                                 Logger.shared.log("NotificationService \(episode)", "Updating content to \(content)")
 
                                                 if wasDisplayed {
-                                                    content = NotificationContent(isLockedMessage: nil, isMentionOrReply: isMentionOrReply)
+                                                    content = NotificationContent(isLockedMessage: nil, isMentionOrReply: isMentionOrReply, chatId: chatId)
                                                     Logger.shared.log("NotificationService \(episode)", "Was already displayed, skipping content")
                                                 } else if let messageId {
                                                     let _ = (stateManager.postbox.transaction { transaction -> Void in
@@ -1698,7 +1707,7 @@ private final class NotificationServiceHandler {
                                                         case let .idBased(maxIncomingReadId, _, _, _, _):
                                                             if maxIncomingReadId >= messageId.id {
                                                                 Logger.shared.log("NotificationService \(episode)", "maxIncomingReadId: \(maxIncomingReadId), messageId: \(messageId.id), skipping")
-                                                                content = NotificationContent(isLockedMessage: nil, isMentionOrReply: isMentionOrReply)
+                                                                content = NotificationContent(isLockedMessage: nil, isMentionOrReply: isMentionOrReply, chatId: chatId)
                                                             } else {
                                                                 Logger.shared.log("NotificationService \(episode)", "maxIncomingReadId: \(maxIncomingReadId), messageId: \(messageId.id), not skipping")
                                                             }
@@ -2368,16 +2377,46 @@ final class NotificationService: UNNotificationServiceExtension {
 extension NotificationContent {
     var forceIsEmpty: Bool {
         if !self.isEmpty {
-            if PINNED_MESSAGE_ACTION == "disabled" && self.isPinned || MENTION_AND_REPLY_ACTION == "disabled" && self.isMentionOrReply {
-                return true
+            if self.isPinned {
+                var desiredAction = PINNED_MESSAGE_ACTION
+                if let chatId = chatId, let exceptionAction = PINNED_MESSAGE_ACTION_EXCEPTIONS["\(chatId)"] {
+                    desiredAction = exceptionAction
+                }
+                if desiredAction == "disabled" {
+                    return true
+                }
+            }
+            if self.isMentionOrReply {
+                var desiredAction = MENTION_AND_REPLY_ACTION
+                if let chatId = chatId, let exceptionAction = MENTION_AND_REPLY_ACTION_EXCEPTIONS["\(chatId)"] {
+                    desiredAction = exceptionAction
+                }
+                if desiredAction == "disabled" {
+                    return true
+                }
             }
         }
         return false
     }
     var forceIsSilent: Bool {
         if !self.silent {
-            if PINNED_MESSAGE_ACTION == "silenced" && self.isPinned || MENTION_AND_REPLY_ACTION == "silenced" && self.isMentionOrReply {
-                return true
+            if self.isPinned {
+                var desiredAction = PINNED_MESSAGE_ACTION
+                if let chatId = chatId, let exceptionAction = PINNED_MESSAGE_ACTION_EXCEPTIONS["\(chatId)"] {
+                    desiredAction = exceptionAction
+                }
+                if desiredAction == "silenced" {
+                    return true
+                }
+            }
+            if self.isMentionOrReply {
+                var desiredAction = MENTION_AND_REPLY_ACTION
+                if let chatId = chatId, let exceptionAction = MENTION_AND_REPLY_ACTION_EXCEPTIONS["\(chatId)"] {
+                    desiredAction = exceptionAction
+                }
+                if desiredAction == "silenced" {
+                    return true
+                }
             }
         }
         return false
