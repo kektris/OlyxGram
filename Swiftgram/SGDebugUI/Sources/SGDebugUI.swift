@@ -827,6 +827,7 @@ public func sgMessageFilterController(presentationData: PresentationData? = nil)
 
 private enum SGDebugControllerSection: Int32, SGItemListSection {
     case base
+    case notifications
 }
 
 private enum SGDebugDisclosureLink: String {
@@ -847,7 +848,12 @@ private enum SGDebugToggles: String {
 }
 
 
-private typealias SGDebugControllerEntry = SGItemListUIEntry<SGDebugControllerSection, SGDebugToggles, AnyHashable, AnyHashable, SGDebugDisclosureLink, SGDebugActions>
+private enum SGDebugOneFromManySetting: String {
+    case pinnedMessageNotifications
+    case mentionsAndRepliesNotifications
+}
+
+private typealias SGDebugControllerEntry = SGItemListUIEntry<SGDebugControllerSection, SGDebugToggles, AnyHashable, SGDebugOneFromManySetting, SGDebugDisclosureLink, SGDebugActions>
 
 private func SGDebugControllerEntries(presentationData: PresentationData) -> [SGDebugControllerEntry] {
     var entries: [SGDebugControllerEntry] = []
@@ -867,8 +873,12 @@ private func SGDebugControllerEntries(presentationData: PresentationData) -> [SG
     }
     entries.append(.action(id: id.count, section: .base, actionType: .clearRegDateCache, text: "Clear Regdate cache", kind: .generic))
     entries.append(.toggle(id: id.count, section: .base, settingName: .forceImmediateShareSheet, value: SGSimpleSettings.shared.forceSystemSharing, text: "Force System Share Sheet", enabled: true))
-    entries.append(.toggle(id: id.count, section: .base, settingName: .legacyNotificationsFix, value: SGSimpleSettings.shared.legacyNotificationsFix, text: "[Legacy] Fix empty notifications", enabled: true))
-    
+
+    entries.append(.header(id: id.count, section: .notifications, text: "NOTIFICATIONS", badge: nil))
+    entries.append(.toggle(id: id.count, section: .notifications, settingName: .legacyNotificationsFix, value: SGSimpleSettings.shared.legacyNotificationsFix, text: "[Legacy] Fix empty notifications", enabled: true))
+    entries.append(.oneFromManySelector(id: id.count, section: .notifications, settingName: .pinnedMessageNotifications, text: "Pinned Messages", value: SGSimpleSettings.shared.pinnedMessageNotifications, enabled: true))
+    entries.append(.oneFromManySelector(id: id.count, section: .notifications, settingName: .mentionsAndRepliesNotifications, text: "@Mentions and Replies", value: SGSimpleSettings.shared.mentionsAndRepliesNotifications, enabled: true))
+
     return entries
 }
 private func okUndoController(_ text: String, _ presentationData: PresentationData) -> UndoOverlayController {
@@ -882,7 +892,7 @@ public func sgDebugController(context: AccountContext) -> ViewController {
 
     let simplePromise = ValuePromise(true, ignoreRepeated: false)
     
-    let arguments = SGItemListArguments<SGDebugToggles, AnyHashable, AnyHashable, SGDebugDisclosureLink, SGDebugActions>(context: context, setBoolValue: { toggleName, value in
+    let arguments = SGItemListArguments<SGDebugToggles, AnyHashable, SGDebugOneFromManySetting, SGDebugDisclosureLink, SGDebugActions>(context: context, setBoolValue: { toggleName, value in
         switch toggleName {
             case .forceImmediateShareSheet:
                 SGSimpleSettings.shared.forceSystemSharing = value
@@ -891,6 +901,52 @@ public func sgDebugController(context: AccountContext) -> ViewController {
             case .inputToolbar:
                 SGSimpleSettings.shared.inputToolbar = value
         }
+    }, setOneFromManyValue: { setting in
+        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+        let actionSheet = ActionSheetController(presentationData: presentationData)
+        var items: [ActionSheetItem] = []
+        
+        switch (setting) {
+            case .pinnedMessageNotifications:
+                let setAction: (String) -> Void = { value in
+                    SGSimpleSettings.shared.pinnedMessageNotifications = value
+                    simplePromise.set(true)
+                }
+
+                for value in SGSimpleSettings.PinnedMessageNotificationsSettings.allCases {
+                    items.append(ActionSheetButtonItem(title: value.rawValue, color: .accent, action: { [weak actionSheet] in
+                        actionSheet?.dismissAnimated()
+                        if SGSimpleSettings.shared.b {
+                            setAction(value.rawValue)
+                        } else {
+                            setAction(SGSimpleSettings.PinnedMessageNotificationsSettings.default.rawValue)
+                        }
+                    }))
+                }
+            case .mentionsAndRepliesNotifications:
+                let setAction: (String) -> Void = { value in
+                    SGSimpleSettings.shared.mentionsAndRepliesNotifications = value
+                    simplePromise.set(true)
+                }
+
+                for value in SGSimpleSettings.MentionsAndRepliesNotificationsSettings.allCases {
+                    items.append(ActionSheetButtonItem(title: value.rawValue, color: .accent, action: { [weak actionSheet] in
+                        actionSheet?.dismissAnimated()
+                        if SGSimpleSettings.shared.b {
+                            setAction(value.rawValue)
+                        } else {
+                            setAction(SGSimpleSettings.MentionsAndRepliesNotificationsSettings.default.rawValue)
+                        }
+                    }))
+                }
+        }
+        
+        actionSheet.setItemGroups([ActionSheetItemGroup(items: items), ActionSheetItemGroup(items: [
+            ActionSheetButtonItem(title: presentationData.strings.Common_Cancel, color: .accent, font: .bold, action: { [weak actionSheet] in
+                actionSheet?.dismissAnimated()
+            })
+        ])])
+        presentControllerImpl?(actionSheet, ViewControllerPresentationArguments(presentationAnimation: .modalSheet))
     }, openDisclosureLink: { link in
         let presentationData = context.sharedContext.currentPresentationData.with { $0 }
         switch (link) {

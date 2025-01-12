@@ -18,7 +18,10 @@ import NotificationsPresentationData
 import RangeSet
 import ConvertOpusToAAC
 
-private let LEGACY_NOTIFICATIONS_FIX: Bool = UserDefaults.standard.bool(forKey: "legacyNotificationsFix")
+private let groupUserDefaults: UserDefaults? = UserDefaults(suiteName: "group.app.swiftgram.ios")
+private let LEGACY_NOTIFICATIONS_FIX: Bool = groupUserDefaults?.bool(forKey: "legacyNotificationsFix") ?? false
+private let PINNED_MESSAGE_ACTION: String = groupUserDefaults?.string(forKey: "pinnedMessageNotifications") ?? "default"
+private let MENTION_AND_REPLY_ACTION: String = groupUserDefaults?.string(forKey: "mentionsAndRepliesNotifications") ?? "default"
 
 private let queue = Queue()
 
@@ -498,16 +501,20 @@ private struct NotificationContent: CustomStringConvertible {
     var userInfo: [AnyHashable: Any] = [:]
     var attachments: [UNNotificationAttachment] = []
     var silent = false
+    // MARK: Swiftgram
     var isEmpty: Bool
+    var isMentionOrReply: Bool
+    var isPinned: Bool = false
 
     var senderPerson: INPerson?
     var senderImage: INImage?
     
     var isLockedMessage: String?
     
-    init(isLockedMessage: String?, isEmpty: Bool = false) {
+    init(isLockedMessage: String?, isEmpty: Bool = false, isMentionOrReply: Bool = false) {
         self.isLockedMessage = isLockedMessage
         self.isEmpty = isEmpty
+        self.isMentionOrReply = isMentionOrReply
     }
 
     var description: String {
@@ -524,6 +531,10 @@ private struct NotificationContent: CustomStringConvertible {
         string += " isLockedMessage: \(String(describing: self.isLockedMessage)),\n"
         string += " attachments: \(self.attachments),\n"
         string += " isEmpty: \(self.isEmpty),\n"
+        string += " isMentionOrReply: \(self.isMentionOrReply),\n"
+        string += " isPinned: \(self.isPinned),\n"
+        string += " forceIsEmpty: \(self.forceIsEmpty),\n"
+        string += " forceIsSilent: \(self.forceIsSilent),\n"
         string += "}"
         return string
     }
@@ -538,7 +549,7 @@ private struct NotificationContent: CustomStringConvertible {
             if let topicTitle {
                 displayName = "\(topicTitle) (\(displayName))"
             }
-            if self.silent {
+            if self.silent || self.forceIsSilent {
                 displayName = "\(displayName) 🔕"
             }
             
@@ -562,9 +573,15 @@ private struct NotificationContent: CustomStringConvertible {
         var content = UNMutableNotificationContent()
         
         //Logger.shared.log("NotificationService", "Generating final content: \(self.description)")
-
+        // MARK: Swiftgram
+        #if DEBUG
+        print("body:\(content.body) silent:\(self.silent) isMentionOrReply:\(self.isMentionOrReply) MENTION_AND_REPLY_ACTION:\(MENTION_AND_REPLY_ACTION) isPinned:\(self.isPinned) PINNED_MESSAGE_ACTION:\(PINNED_MESSAGE_ACTION)" +  " forceIsEmpty:\(self.forceIsEmpty) forceIsSilent:\(self.forceIsSilent)")
+        #endif
+        if self.forceIsEmpty && !LEGACY_NOTIFICATIONS_FIX {
+            return UNNotificationContent()
+        }
         if let title = self.title {
-            if self.silent {
+            if self.silent || self.forceIsSilent {
                 content.title = "\(title) 🔕"
             } else {
                 content.title = title
@@ -645,7 +662,7 @@ private struct NotificationContent: CustomStringConvertible {
         }
         
         // MARK: Swiftgram
-        if self.isEmpty && LEGACY_NOTIFICATIONS_FIX {
+        if (self.isEmpty || self.forceIsEmpty) && LEGACY_NOTIFICATIONS_FIX {
             content.title = " "
             content.threadIdentifier = "empty-notification"
             if #available(iOSApplicationExtension 15.0, iOS 15.0, *) {
@@ -653,7 +670,10 @@ private struct NotificationContent: CustomStringConvertible {
                 content.relevanceScore = 0.0
             }
         }
-
+        
+        if self.forceIsSilent {
+            content.sound = nil
+        }
         return content
     }
 }
@@ -919,6 +939,7 @@ private final class NotificationServiceHandler {
 
                         return
                     }
+                    let isMentionOrReply: Bool = payloadJson["mention"] as? String == "1"
 
                     Logger.shared.log("NotificationService \(episode)", "Decrypted payload: \(payloadJson)")
 
@@ -1016,7 +1037,7 @@ private final class NotificationServiceHandler {
                             action = .logout
                         case "MESSAGE_MUTED":
                             if let peerId = peerId {
-                                action = .poll(peerId: peerId, content: NotificationContent(isLockedMessage: nil, isEmpty: true), messageId: nil, reportDelivery: false)
+                                action = .poll(peerId: peerId, content: NotificationContent(isLockedMessage: nil, isEmpty: true, isMentionOrReply: isMentionOrReply), messageId: nil, reportDelivery: false)
                             }
                         case "MESSAGE_DELETED":
                             if let peerId = peerId {
@@ -1067,7 +1088,7 @@ private final class NotificationServiceHandler {
                         }
                     } else {
                         if let aps = payloadJson["aps"] as? [String: Any], var peerId = peerId {
-                            var content: NotificationContent = NotificationContent(isLockedMessage: isLockedMessage)
+                            var content: NotificationContent = NotificationContent(isLockedMessage: isLockedMessage, isMentionOrReply: isMentionOrReply)
                             if let alert = aps["alert"] as? [String: Any] {
                                 if let topicTitleValue = payloadJson["topic_title"] as? String {
                                     topicTitle = topicTitleValue
@@ -1277,6 +1298,11 @@ private final class NotificationServiceHandler {
                                 let pollCompletion: (NotificationContent, Media?) -> Void = { content, customMedia in
                                     var content = content
 
+                                    // MARK: Swiftgram
+                                    if let mediaAction = customMedia as? TelegramMediaAction, case .pinnedMessageUpdated = mediaAction.action {
+                                        content.isPinned = true
+                                    }
+                                    
                                     queue.async {
                                         guard let strongSelf = self, let stateManager = strongSelf.stateManager else {
                                             let content = NotificationContent(isLockedMessage: isLockedMessage)
@@ -1585,7 +1611,7 @@ private final class NotificationServiceHandler {
                                                 Logger.shared.log("NotificationService \(episode)", "Updating content to \(content)")
 
                                                 if wasDisplayed {
-                                                    content = NotificationContent(isLockedMessage: nil)
+                                                    content = NotificationContent(isLockedMessage: nil, isMentionOrReply: isMentionOrReply)
                                                     Logger.shared.log("NotificationService \(episode)", "Was already displayed, skipping content")
                                                 } else if let messageId {
                                                     let _ = (stateManager.postbox.transaction { transaction -> Void in
@@ -1672,7 +1698,7 @@ private final class NotificationServiceHandler {
                                                         case let .idBased(maxIncomingReadId, _, _, _, _):
                                                             if maxIncomingReadId >= messageId.id {
                                                                 Logger.shared.log("NotificationService \(episode)", "maxIncomingReadId: \(maxIncomingReadId), messageId: \(messageId.id), skipping")
-                                                                content = NotificationContent(isLockedMessage: nil)
+                                                                content = NotificationContent(isLockedMessage: nil, isMentionOrReply: isMentionOrReply)
                                                             } else {
                                                                 Logger.shared.log("NotificationService \(episode)", "maxIncomingReadId: \(maxIncomingReadId), messageId: \(messageId.id), not skipping")
                                                             }
@@ -2335,5 +2361,25 @@ final class NotificationService: UNNotificationServiceExtension {
                 contentHandler(initialContent)
             }
         }
+    }
+}
+
+
+extension NotificationContent {
+    var forceIsEmpty: Bool {
+        if !self.isEmpty {
+            if PINNED_MESSAGE_ACTION == "disabled" && self.isPinned || MENTION_AND_REPLY_ACTION == "disabled" && self.isMentionOrReply {
+                return true
+            }
+        }
+        return false
+    }
+    var forceIsSilent: Bool {
+        if !self.silent {
+            if PINNED_MESSAGE_ACTION == "silenced" && self.isPinned || MENTION_AND_REPLY_ACTION == "silenced" && self.isMentionOrReply {
+                return true
+            }
+        }
+        return false
     }
 }

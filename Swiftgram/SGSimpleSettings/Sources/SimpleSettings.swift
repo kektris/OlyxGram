@@ -1,6 +1,8 @@
 import Foundation
 
 
+let appGroupIdentifier = "group.app.swiftgram.ios"
+
 public class SGSimpleSettings {
     
     public static let shared = SGSimpleSettings()
@@ -12,6 +14,11 @@ public class SGSimpleSettings {
     
     private func setDefaultValues() {
         UserDefaults.standard.register(defaults: SGSimpleSettings.defaultValues)
+        // Just in case group defaults will be nil
+        UserDefaults.standard.register(defaults: SGSimpleSettings.groupDefaultValues)
+        if let groupUserDefaults = UserDefaults(suiteName: appGroupIdentifier) {
+            groupUserDefaults.register(defaults: SGSimpleSettings.groupDefaultValues)
+        }
     }
     
     private func preCacheValues() {
@@ -111,6 +118,8 @@ public class SGSimpleSettings {
         case legacyNotificationsFix
         case messageFilterKeywords
         case inputToolbar
+        case pinnedMessageNotifications
+        case mentionsAndRepliesNotifications
     }
     
     public enum DownloadSpeedBoostValues: String, CaseIterable {
@@ -148,6 +157,18 @@ public class SGSimpleSettings {
         case none
     }
         
+    public enum PinnedMessageNotificationsSettings: String, CaseIterable {
+        case `default`
+        case silenced
+        case disabled
+    }
+    
+    public enum MentionsAndRepliesNotificationsSettings: String, CaseIterable {
+        case `default`
+        case silenced
+        case disabled
+    }
+    
     public static let defaultValues: [String: Any] = [
         Keys.hidePhoneInSettings.rawValue: true,
         Keys.showTabNames.rawValue: true,
@@ -208,9 +229,14 @@ public class SGSimpleSettings {
         Keys.forceSystemSharing.rawValue: false,
         Keys.confirmCalls.rawValue: true,
         Keys.videoPIPSwipeDirection.rawValue: VideoPIPSwipeDirection.up.rawValue,
-        Keys.legacyNotificationsFix.rawValue: false,
         Keys.messageFilterKeywords.rawValue: [],
         Keys.inputToolbar.rawValue: false
+    ]
+    
+    public static let groupDefaultValues: [String: Any] = [
+        Keys.legacyNotificationsFix.rawValue: false,
+        Keys.pinnedMessageNotifications.rawValue: PinnedMessageNotificationsSettings.default.rawValue,
+        Keys.mentionsAndRepliesNotifications.rawValue: MentionsAndRepliesNotificationsSettings.default.rawValue
     ]
     
     @UserDefault(key: Keys.hidePhoneInSettings.rawValue)
@@ -389,7 +415,7 @@ public class SGSimpleSettings {
     @UserDefault(key: Keys.videoPIPSwipeDirection.rawValue)
     public var videoPIPSwipeDirection: String
 
-    @UserDefault(key: Keys.legacyNotificationsFix.rawValue)
+    @UserDefault(key: Keys.legacyNotificationsFix.rawValue, userDefaults: UserDefaults(suiteName: appGroupIdentifier) ?? .standard)
     public var legacyNotificationsFix: Bool
     
     public var b: Bool = true
@@ -399,6 +425,12 @@ public class SGSimpleSettings {
     
     @UserDefault(key: Keys.inputToolbar.rawValue)
     public var inputToolbar: Bool
+    
+    @UserDefault(key: Keys.pinnedMessageNotifications.rawValue, userDefaults: UserDefaults(suiteName: appGroupIdentifier) ?? .standard)
+    public var pinnedMessageNotifications: String
+    
+    @UserDefault(key: Keys.mentionsAndRepliesNotifications.rawValue, userDefaults: UserDefaults(suiteName: appGroupIdentifier) ?? .standard)
+    public var mentionsAndRepliesNotifications: String
 }
 
 extension SGSimpleSettings {
