@@ -5235,7 +5235,8 @@ extension ChatTextInputPanelNode {
                     transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 0.0, completion: { _ in
                         toolbarHostingController.view.isHidden = true
                     })
-                }*/ else {
+                */
+                } else {
                     toolbarHeight = 44.0
                     toolbarSpacing = 1.0
                     toolbarHostingController.view.isHidden = false
