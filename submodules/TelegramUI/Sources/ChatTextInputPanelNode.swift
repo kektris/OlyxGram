@@ -2937,7 +2937,7 @@ class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDelegate, Ch
         
         // MARK: Swiftgram
         var toolbarOffset: CGFloat = 0.0
-        toolbarOffset = layoutToolbar(transition: transition, panelHeight: panelHeight, width: width, leftInset: originalLeftInset, rightInset: rightInset, displayBotStartButton: displayBotStartButton, animatedTransition: animatedTransition)
+        toolbarOffset = layoutToolbar(transition: transition, panelHeight: panelHeight, width: width, leftInset: originalLeftInset, rightInset: rightInset, displayBotStartButton: displayBotStartButton)
 
         return panelHeight + toolbarOffset
     }
@@ -5224,7 +5224,7 @@ extension ChatTextInputPanelNode {
         self.view.addSubview(toolbarHostingController.view)
     }
     
-    func layoutToolbar(transition: ContainedViewLayoutTransition, panelHeight: CGFloat, width: CGFloat, leftInset: CGFloat, rightInset: CGFloat, displayBotStartButton: Bool, animatedTransition: Bool) -> CGFloat {
+    func layoutToolbar(transition: ContainedViewLayoutTransition, panelHeight: CGFloat, width: CGFloat, leftInset: CGFloat, rightInset: CGFloat, displayBotStartButton: Bool) -> CGFloat {
         var toolbarHeight: CGFloat = 0.0
         var toolbarSpacing: CGFloat = 0.0
         if #available(iOS 13.0, *) {
@@ -5232,26 +5232,15 @@ extension ChatTextInputPanelNode {
                 if displayBotStartButton {
                     toolbarHostingController.view.isHidden = true
                 } else if !self.isFocused {
-                    if animatedTransition {
-                        transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 0.0, completion: { _ in
-                            toolbarHostingController.view.isHidden = true
-                        })
-                    } else {
-                        toolbarHostingController.view.alpha = 0.0
+                    transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 0.0, completion: { _ in
                         toolbarHostingController.view.isHidden = true
-                    }
+                    })
                 } else {
                     toolbarHeight = 44.0
                     toolbarSpacing = 1.0
-                    let newFrame = CGRect(origin: CGPoint(x: leftInset, y: panelHeight + toolbarSpacing), size: CGSize(width: width - rightInset - leftInset, height: toolbarHeight))
-                    if animatedTransition {
-                        transition.updateFrame(view: toolbarHostingController.view, frame: newFrame)
-                        transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 1.0)
-                    } else {
-                        toolbarHostingController.view.frame = newFrame
-                        toolbarHostingController.view.alpha = 1.0
-                    }
                     toolbarHostingController.view.isHidden = false
+                    transition.updateFrame(view: toolbarHostingController.view, frame: CGRect(origin: CGPoint(x: leftInset, y: panelHeight + toolbarSpacing), size: CGSize(width: width - rightInset - leftInset, height: toolbarHeight)))
+                    transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 1.0)
                 }
             }
         }
