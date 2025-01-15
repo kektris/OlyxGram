@@ -271,7 +271,7 @@ NSString *const TGBridgeUserChangeFieldsKey = @"fields";
     self = [super init];
     if (self != nil)
     {
-        _userIdentifier = [aDecoder decodeInt32ForKey:TGBridgeUserChangeIdentifierKey];
+        _userIdentifier = [aDecoder decodeInt64ForKey:TGBridgeUserChangeIdentifierKey];
         _fields = [aDecoder decodeObjectForKey:TGBridgeUserChangeFieldsKey];
     }
     return self;
@@ -279,7 +279,7 @@ NSString *const TGBridgeUserChangeFieldsKey = @"fields";
 
 - (void)encodeWithCoder:(NSCoder *)aCoder
 {
-    [aCoder encodeInt32:self.userIdentifier forKey:TGBridgeUserChangeIdentifierKey];
+    [aCoder encodeInt64:self.userIdentifier forKey:TGBridgeUserChangeIdentifierKey];
     [aCoder encodeObject:self.fields forKey:TGBridgeUserChangeFieldsKey];
 }
 
