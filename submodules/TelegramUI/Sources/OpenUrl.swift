@@ -4,6 +4,7 @@ import SGConfig
 import SGSettingsUI
 import SGDebugUI
 import SFSafariViewControllerPlus
+import ContactListUI
 import Foundation
 import Display
 import SafariServices
@@ -1006,6 +1007,11 @@ func openExternalUrlImpl(context: AccountContext, urlContext: OpenURLContext, ur
                                 return
                             case "ios_settings":
                                 context.sharedContext.applicationBindings.openSettings()
+                                return
+                            case "contacts":
+                                if let lastViewController = navigationController?.viewControllers.last as? ViewController {
+                                    lastViewController.present(ContactsController(context: context), in: .window(.root), with: ViewControllerPresentationArguments(presentationAnimation: .modalSheet))
+                                }
                                 return
                             default:
                                 break
