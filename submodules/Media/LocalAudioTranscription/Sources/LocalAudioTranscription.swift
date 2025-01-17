@@ -50,6 +50,7 @@ private func transcribeAudio(path: String, locale: String) -> Signal<Transcripti
                             }
                             speechRecognizer.supportsOnDeviceRecognition = true
                         }
+                        speechRecognizer.defaultTaskHint = .dictation
                         
                         let tempFilePath = NSTemporaryDirectory() + "/\(UInt64.random(in: 0 ... UInt64.max)).m4a"
                         let _ = try? FileManager.default.copyItem(atPath: path, toPath: tempFilePath)

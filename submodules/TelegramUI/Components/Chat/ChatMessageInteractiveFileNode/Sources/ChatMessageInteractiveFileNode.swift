@@ -450,7 +450,8 @@ public final class ChatMessageInteractiveFileNode: ASDisplayNode {
                         guard let result = result else {
                             return .single(nil)
                         }
-                        return transcribeAudio(path: result, appLocale: appLocale)
+                        
+                        return transcribeAudio(path: result, appLocale: arguments.controllerInteraction.sgGetChatPredictedLang() ?? appLocale)
                     }
                     
                     self.transcribeDisposable = (signal
@@ -802,7 +803,7 @@ public final class ChatMessageInteractiveFileNode: ASDisplayNode {
                 }
                 
                 let currentTime = Int32(Date().timeIntervalSince1970)
-                if transcribedText == nil, let cooldownUntilTime = arguments.associatedData.audioTranscriptionTrial.cooldownUntilTime, cooldownUntilTime > currentTime {
+                if transcribedText == nil, let cooldownUntilTime = arguments.associatedData.audioTranscriptionTrial.cooldownUntilTime, cooldownUntilTime > currentTime, { return false }() /* MARK: Swiftgram */ {
                     updatedAudioTranscriptionState = .locked
                 }
                 
