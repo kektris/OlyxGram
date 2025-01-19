@@ -615,7 +615,8 @@ class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDelegate, Ch
     // MARK: Swiftgram
     private var sendWithReturnKey: Bool
     private var sendWithReturnKeyDisposable: Disposable?
-    private var toolbarHostingController: Any? //  UIHostingController<ChatToolbarView>?
+//    private var toolbarHostingController: UIViewController? //Any? //  UIHostingController<ChatToolbarView>?
+    private var toolbarNode: ASDisplayNode?
     
     var inputTextState: ChatTextInputState {
         if let textInputNode = self.textInputNode {
@@ -929,9 +930,10 @@ class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDelegate, Ch
                     textInputNode.textView.returnKeyType = strongSelf.sendWithReturnKey ? .send : .default
                     textInputNode.textView.reloadInputViews()
                 }
-                if #available(iOS 13.0, *), let toolbar = strongSelf.toolbarHostingController as? UIHostingController<ChatToolbarView> {
-                    toolbar.rootView.setShowNewLine(value)
-                }
+                // TODO(swiftgram): Fix call to setShowNewLine via ASDisplayNode
+//                if #available(iOS 13.0, *), let toolbar = strongSelf.toolbarHostingController as? UIHostingController<ChatToolbarView> {
+//                    toolbar.rootView.setShowNewLine(value)
+//                }
             }
         })
 
@@ -5121,7 +5123,7 @@ extension ChatTextInputPanelNode {
         guard #available(iOS 13.0, *) else { return }
         guard SGSimpleSettings.shared.inputToolbar else { return }
         guard SGSimpleSettings.shared.b else { return }
-        guard self.toolbarHostingController == nil else { return }
+        guard self.toolbarNode == nil else { return }
         let toolbarView = ChatToolbarView(
             onQuote: { [weak self] in
                 guard let strongSelf = self else { return }
@@ -5209,42 +5211,41 @@ extension ChatTextInputPanelNode {
                 }
             }
         )
-        let toolbarHostingController = UIHostingController(rootView: toolbarView/*, ignoreSafeArea: true*/)
-        self.toolbarHostingController = toolbarHostingController
+        let toolbarHostingController = UIHostingController(rootView: toolbarView)
         toolbarHostingController.view.backgroundColor = .clear
+        let toolbarNode = ASDisplayNode { toolbarHostingController.view }
+        self.toolbarNode = toolbarNode
+        // assigning toolbarHostingController bugs responsivness and overrides layout
+//        self.toolbarHostingController = toolbarHostingController
         
         // Disable "Swipe to go back" gesture when touching scrollview
         self.view.interactiveTransitionGestureRecognizerTest = { [weak self] point in
-            if let self, let _ = (self.toolbarHostingController as? UIHostingController<ChatToolbarView>)?.view.hitTest(point, with: nil) {
+            if let self, let _ = self.toolbarNode?.view.hitTest(point, with: nil) {
                 return false
             }
             return true
         }
-        
-        self.view.addSubview(toolbarHostingController.view)
+        self.addSubnode(toolbarNode)
     }
     
     func layoutToolbar(transition: ContainedViewLayoutTransition, panelHeight: CGFloat, width: CGFloat, leftInset: CGFloat, rightInset: CGFloat, displayBotStartButton: Bool) -> CGFloat {
         var toolbarHeight: CGFloat = 0.0
         var toolbarSpacing: CGFloat = 0.0
-        if #available(iOS 13.0, *) {
-            if let toolbarHostingController = self.toolbarHostingController as? UIHostingController<ChatToolbarView> {
+            if let toolbarNode = self.toolbarNode {
                 if displayBotStartButton {
-                    toolbarHostingController.view.isHidden = true
-                /*} else if !(textInputNode?.isFirstResponder() ?? false) {
-                    transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 0.0, completion: { _ in
-                        toolbarHostingController.view.isHidden = true
-                    })
-                */
+                    toolbarNode.view.isHidden = true
+                /*} else if !self.isFocused {
+                    transition.updateAlpha(node: toolbarNode, alpha: 0.0, completion: { _ in
+                        toolbarNode.isHidden = true
+                    })*/
                 } else {
                     toolbarHeight = 44.0
                     toolbarSpacing = 1.0
-                    toolbarHostingController.view.isHidden = false
-                    transition.updateFrame(view: toolbarHostingController.view, frame: CGRect(origin: CGPoint(x: leftInset, y: panelHeight + toolbarSpacing), size: CGSize(width: width - rightInset - leftInset, height: toolbarHeight)))
-                    // transition.updateAlpha(layer: toolbarHostingController.view.layer, alpha: 1.0)
+                    // toolbarNode.isHidden = false
+                    transition.updateFrame(node: toolbarNode, frame: CGRect(origin: CGPoint(x: leftInset, y: panelHeight + toolbarSpacing), size: CGSize(width: width - rightInset - leftInset, height: toolbarHeight)))
+                    // transition.updateAlpha(node: toolbarNode, alpha: 1.0)
                 }
             }
-        }
         return toolbarHeight + toolbarSpacing
     }
 
