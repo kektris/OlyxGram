@@ -5148,21 +5148,21 @@ extension ChatTextInputPanelNode {
     func layoutToolbar(transition: ContainedViewLayoutTransition, panelHeight: CGFloat, width: CGFloat, leftInset: CGFloat, rightInset: CGFloat, displayBotStartButton: Bool) -> CGFloat {
         var toolbarHeight: CGFloat = 0.0
         var toolbarSpacing: CGFloat = 0.0
-            if let toolbarNode = self.toolbarNode {
-                if displayBotStartButton {
-                    toolbarNode.view.isHidden = true
-                /*} else if !self.isFocused {
-                    transition.updateAlpha(node: toolbarNode, alpha: 0.0, completion: { _ in
-                        toolbarNode.isHidden = true
-                    })*/
-                } else {
-                    toolbarHeight = 44.0
-                    toolbarSpacing = 1.0
-                    // toolbarNode.isHidden = false
-                    transition.updateFrame(node: toolbarNode, frame: CGRect(origin: CGPoint(x: leftInset, y: panelHeight + toolbarSpacing), size: CGSize(width: width - rightInset - leftInset, height: toolbarHeight)))
-                    // transition.updateAlpha(node: toolbarNode, alpha: 1.0)
-                }
+        if let toolbarNode = self.toolbarNode {
+            if displayBotStartButton {
+                toolbarNode.view.isHidden = true
+            /*} else if !self.isFocused {
+                transition.updateAlpha(node: toolbarNode, alpha: 0.0, completion: { _ in
+                    toolbarNode.isHidden = true
+                })*/
+            } else {
+                toolbarHeight = 44.0
+                toolbarSpacing = 1.0
+                // toolbarNode.isHidden = false
+                transition.updateFrame(node: toolbarNode, frame: CGRect(origin: CGPoint(x: leftInset, y: panelHeight + toolbarSpacing), size: CGSize(width: width - rightInset - leftInset, height: toolbarHeight)))
+                // transition.updateAlpha(node: toolbarNode, alpha: 1.0)
             }
+        }
         return toolbarHeight + toolbarSpacing
     }
 }
