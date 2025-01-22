@@ -96,7 +96,7 @@ private final class PeerBanTimeoutActionSheetItemNode: ActionSheetItemNode {
         
         self.pickerView = UIDatePicker()
         self.pickerView.datePickerMode = .countDownTimer
-        self.pickerView.datePickerMode = .date
+        self.pickerView.datePickerMode = .dateAndTime
         self.pickerView.date = Date(timeIntervalSince1970: Double(roundDateToDays(currentValue)))
         self.pickerView.locale = localeWithStrings(strings)
         self.pickerView.minimumDate = Date()
